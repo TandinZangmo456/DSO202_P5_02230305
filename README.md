@@ -1,7 +1,5 @@
 # DSO202 Practical: Environment-Specific Configuration with Kustomize on Kind
 
-**Name:** ____________  **Student ID:** ____________  **Date:** 29 September 2026
-
 ## 1. Aim
 
 Deploy one NGINX app to dev, staging and prod from a single base using Kustomize overlays, without copying the Deployment or Service, and follow the workflow render → diff → apply → verify.
