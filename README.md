@@ -37,9 +37,17 @@ The base renders a Deployment, a Service and a ConfigMap named `web-content-587c
 
 ## 4. Dev vs prod (Task 3)
 
-![Figure 4](images/fig04.png)
+![Figure 4a](images/fig04a.png)
 
-*Figure 4: `diff -u` of rendered dev and prod (excerpt).*
+*Figure 4a: `diff -u` of rendered dev and prod: namespace, labels and page content.*
+
+![Figure 4b](images/fig04b.png)
+
+*Figure 4b: Diff continued: image, prod resources and ConfigMap reference. This was before the dev image fix in section 12, so dev still shows the `experimental` tag.*
+
+![Figure 4c](images/fig04c.png)
+
+*Figure 4c: Replica and annotation differences, and the dev image tag at that point.*
 
 | Category | Dev | Prod |
 |---|---|---|
@@ -51,7 +59,7 @@ The base renders a Deployment, a Service and a ConfigMap named `web-content-587c
 | ConfigMap | `web-content-48fdkc9k5d` | `web-content-45gg4d97fm` |
 | Annotation | none | `training.example.com/tier: production` |
 
-The overlays explain every difference in a few lines, and the Service and shared Deployment fields do not appear in the diff.
+The overlays explain every difference in a few lines. The Service only differs in its namespace and labels, and shared Deployment fields such as the ports and readiness probe do not change.
 
 ## 5. Deploying dev (Tasks 4–5)
 
@@ -68,9 +76,17 @@ The first `diff` reported the namespace as not found, which is expected before t
 
 *Figure 5: Rendered dev overlay (excerpt).*
 
-![Figure 6](images/fig06.png)
+![Figure 6a](images/fig06a.png)
 
-*Figure 6: `kubectl get all -n webapp-dev`: pod 1/1 Running, Deployment 1/1.*
+*Figure 6a: `kubectl get all -n webapp-dev`: pod 1/1 Running, Deployment 1/1.*
+
+![Figure 6b](images/fig06b.png)
+
+*Figure 6b: `kubectl port-forward` to the dev Service.*
+
+![Figure 6c](images/fig06c.png)
+
+*Figure 6c: `curl` returning the dev page, and the ConfigMap and pod before the content change.*
 
 ## 6. ConfigMap hash and rollout chain (Task 6)
 
@@ -89,7 +105,7 @@ After editing `overlays/dev/index.html` to "DEV v2 — configuration changed":
 
 ## 7. Staging and prod, and prod patch (Tasks 7–8)
 
-Final replicas: dev 1, staging 2, prod 4 (all available).
+Final replicas: dev 1, staging 2, prod 4 (all available). The lab's `-l app.kubernetes.io/name=webapp` filter returned no resources because the base uses the label `app=webapp`. I used `-l app=webapp` for pods, and for Deployments I used `kubectl get deploy -A | grep` because the Deployment object itself does not have that label.
 
 ![Figure 8](images/fig08.png)
 
@@ -114,9 +130,13 @@ QA reuses the base, with namespace `webapp-qa`, 2 replicas, label `qa`, its own 
 
 The first operation creates the annotations map (the base has none, and a JSON 6902 `add` fails without the parent). `~1` escapes the `/` in the key. The annotation was checked in the rendered output before applying.
 
-![Figure 9](images/fig09.png)
+![Figure 9a](images/fig09a.png)
 
-*Figure 9: QA files, render with annotation, apply and verification (2 pods Running).*
+*Figure 9a: QA files, `kustomization.yaml` and the JSON 6902 patch.*
+
+![Figure 9b](images/fig09b.png)
+
+*Figure 9b: Render with annotation, apply and verification (2 pods Running).*
 
 ## 9. Cleanup (Task 10)
 
@@ -130,9 +150,13 @@ All four namespaces were deleted with `kubectl delete -k`, and `kubectl get ns |
 
 Rendered only, not applied. Predictions matched except one: the Deployment, Service and ConfigMap were prefixed and the Deployment's ConfigMap reference was rewritten automatically (`sbx-web-content-587c5ckcm8`). The Namespace was **not** prefixed (`webapp-sandbox`), because Kustomize excludes Namespace objects from `namePrefix`, so my prediction was wrong. The volume name and selectors stayed unchanged.
 
-![Figure 11](images/fig11.png)
+![Figure 11a](images/fig11a.png)
 
-*Figure 11: Sandbox overlay and rendered names.*
+*Figure 11a: Sandbox overlay and rendered names.*
+
+![Figure 11b](images/fig11b.png)
+
+*Figure 11b: Selectors unchanged by `namePrefix`.*
 
 ## 11. Strategic merge vs JSON 6902
 
@@ -147,7 +171,19 @@ Strategic merge speaks Kubernetes; JSON 6902 speaks paths.
 
 ## 12. Reflection
 
-The dev overlay had `newTag: 1.27-alpine-experimental` and staging had `1.27-alpine-rc1`, neither of which exists in the registry. Dev was caught before applying, but staging went to `ErrImagePull`. `kubectl describe pod` showed the image name, and `kubectl kustomize ... | grep 'image:'` showed the overlay generated it. I changed `newTag` to `1.27-alpine` and re-applied, and Kubernetes replaced the failing pods. Rendered output shows exactly what will be sent, but cannot show whether an image tag exists, so tags must be checked separately.
+The dev overlay had `newTag: 1.27-alpine-experimental` and staging had `1.27-alpine-rc1`, neither of which exists in the registry. Dev was caught before applying, but staging went to `ErrImagePull`. `kubectl describe pod` showed the image `nginx:1.27-alpine-rc1`. I changed `newTag` to `1.27-alpine`, confirmed it with `kubectl kustomize ... | grep 'image:'` and re-applied, and Kubernetes replaced the failing pods. Rendered output shows exactly what will be sent, but cannot show whether an image tag exists, so tags must be checked separately.
+
+![Figure 12a](images/fig12a.png)
+
+*Figure 12a: Dev tag fixed before the first apply.*
+
+![Figure 12b](images/fig12b.png)
+
+*Figure 12b: Staging pods in `ErrImagePull`.*
+
+![Figure 12c](images/fig12c.png)
+
+*Figure 12c: Staging image found with `describe`, then the tag fixed and re-applied.*
 
 ## 13. Conclusion
 
